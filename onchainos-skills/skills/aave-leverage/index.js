@@ -158,6 +158,53 @@ class AaveLeverageAgent {
     return receipt.hash;
   }
 
+  async swapViaOKX(fromToken, toToken, amountUSD) {
+    const fromAddr = TOKENS[fromToken];
+    const toAddr = TOKENS[toToken];
+    const token = new ethers.Contract(fromAddr, ERC20_ABI, this.wallet);
+    const decimals = Number(await token.decimals());
+    const rounded = Math.floor(amountUSD * 10 ** decimals) / 10 ** decimals;
+    const amountWei = ethers.parseUnits(rounded.toFixed(decimals), decimals);
+
+    const onchainosPath = path.join(__dirname, '../../../onchainos.exe');
+
+    // Get approval address from OKX
+    const approveCmd = `"${onchainosPath}" swap approve --chain ethereum --token ${fromAddr} --amount ${amountWei.toString()}`;
+    const approveOutput = execSync(approveCmd, { encoding: 'utf-8' });
+    const approveData = JSON.parse(approveOutput);
+    const approvalAddress = approveData.data[0].dexContractAddress;
+
+    // Approve the approval contract
+    const gasOpts = await this.getGasPrice();
+    const allowance = await token.allowance(this.wallet.address, approvalAddress);
+    if (allowance < amountWei) {
+      if (allowance > 0n) {
+        await (await token.approve(approvalAddress, 0, gasOpts)).wait();
+      }
+      await (await token.approve(approvalAddress, ethers.MaxUint256, gasOpts)).wait();
+    }
+
+    // Get swap data
+    const swapCmd = `"${onchainosPath}" swap swap --from ${fromAddr} --to ${toAddr} --amount ${amountWei.toString()} --chain ethereum --slippage 5 --wallet ${this.wallet.address}`;
+    const swapOutput = execSync(swapCmd, { encoding: 'utf-8' });
+    const swapData = JSON.parse(swapOutput);
+
+    if (!swapData.data?.[0]?.tx) {
+      throw new Error('Failed to get swap data from OKX');
+    }
+
+    const tx = swapData.data[0].tx;
+    const swapTx = await this.wallet.sendTransaction({
+      to: tx.to,
+      data: tx.data,
+      value: tx.value || '0',
+      gasLimit: parseInt(tx.gas) || 500000
+    });
+
+    const receipt = await swapTx.wait();
+    return receipt.hash;
+  }
+
   async getPositionSummary(initialAmount) {
     const accountData = await this.pool.getUserAccountData(this.wallet.address);
     const totalCollateral = Number(ethers.formatUnits(accountData.totalCollateralBase, 8));
