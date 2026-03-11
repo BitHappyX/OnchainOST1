@@ -1,0 +1,20 @@
+{
+  "name": "aave-leverage-agent",
+  "version": "1.0.0",
+  "description": "Aave V3 循环贷 leverage agent for OKX Hackathon",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "ethers": "^6.10.0",
+    "dotenv": "^16.4.1",
+    "commander": "^12.0.0",
+    "chalk": "^5.3.0"
+  },
+  "keywords": ["aave", "defi", "leverage", "okx", "hackathon"],
+  "author": "OKX Hackathon Team",
+  "license": "Apache-2.0"
+}
