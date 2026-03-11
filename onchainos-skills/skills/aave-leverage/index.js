@@ -62,6 +62,9 @@ class AaveLeverageAgent {
     txs.push(await this.deposit(collateralAddr, amount));
     console.log(`   ✅ ${txs[0]}\n`);
 
+    // Wait for Aave state to update
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     // Step 2: Borrow different asset (USDC if depositing USDT)
     let accountData = await this.pool.getUserAccountData(this.wallet.address);
     let availableBorrowUSD = Number(ethers.formatUnits(accountData.availableBorrowsBase, 8));
@@ -104,7 +107,19 @@ class AaveLeverageAgent {
       console.log(`   Wallet balance: $${balanceUSD.toFixed(2)}`);
 
       if (balanceUSD > 0.1) {
-        txs.push(await this.deposit(collateralAddr, balanceUSD));
+        // Check and approve if needed
+        const allowance = await token.allowance(this.wallet.address, AAVE_POOL);
+        if (allowance < balance) {
+          if (allowance > 0n) {
+            await (await token.approve(AAVE_POOL, 0)).wait();
+          }
+          await (await token.approve(AAVE_POOL, ethers.MaxUint256)).wait();
+        }
+
+        // Deposit using balance wei directly
+        const tx = await this.pool.supply(collateralAddr, balance, this.wallet.address, 0);
+        const receipt = await tx.wait();
+        txs.push(receipt.hash);
         console.log(`   ✅ ${txs[txs.length - 1]}\n`);
       } else {
         console.log('   ⚠️  Insufficient balance to re-deposit\n');
@@ -130,18 +145,17 @@ class AaveLeverageAgent {
     const rounded = Math.floor(amountUSD * 10 ** decimals) / 10 ** decimals;
     const amountWei = ethers.parseUnits(rounded.toFixed(decimals), decimals);
 
-    const gasOpts = await this.getGasPrice();
     const allowance = await token.allowance(this.wallet.address, AAVE_POOL);
     if (allowance < amountWei) {
       if (allowance > 0n) {
-        const resetTx = await token.approve(AAVE_POOL, 0, gasOpts);
+        const resetTx = await token.approve(AAVE_POOL, 0);
         await resetTx.wait();
       }
-      const approveTx = await token.approve(AAVE_POOL, ethers.MaxUint256, gasOpts);
+      const approveTx = await token.approve(AAVE_POOL, ethers.MaxUint256);
       await approveTx.wait();
     }
 
-    const tx = await this.pool.supply(tokenAddr, amountWei, this.wallet.address, 0, gasOpts);
+    const tx = await this.pool.supply(tokenAddr, amountWei, this.wallet.address, 0);
     const receipt = await tx.wait();
     return receipt.hash;
   }
@@ -152,8 +166,7 @@ class AaveLeverageAgent {
     const rounded = Math.floor(amountUSD * 10 ** decimals) / 10 ** decimals;
     const amountWei = ethers.parseUnits(rounded.toFixed(decimals), decimals);
 
-    const gasOpts = await this.getGasPrice();
-    const tx = await this.pool.borrow(tokenAddr, amountWei, 2, 0, this.wallet.address, gasOpts);
+    const tx = await this.pool.borrow(tokenAddr, amountWei, 2, 0, this.wallet.address);
     const receipt = await tx.wait();
     return receipt.hash;
   }
@@ -175,13 +188,12 @@ class AaveLeverageAgent {
     const approvalAddress = approveData.data[0].dexContractAddress;
 
     // Approve the approval contract
-    const gasOpts = await this.getGasPrice();
     const allowance = await token.allowance(this.wallet.address, approvalAddress);
     if (allowance < amountWei) {
       if (allowance > 0n) {
-        await (await token.approve(approvalAddress, 0, gasOpts)).wait();
+        await (await token.approve(approvalAddress, 0)).wait();
       }
-      await (await token.approve(approvalAddress, ethers.MaxUint256, gasOpts)).wait();
+      await (await token.approve(approvalAddress, ethers.MaxUint256)).wait();
     }
 
     // Get swap data
