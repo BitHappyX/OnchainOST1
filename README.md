@@ -186,6 +186,39 @@ onchainos-skills/skills/aave-leverage/
 
 ---
 
+## 🎯 程序可用性证明
+
+<details>
+<summary>点击查看成功交易记录</summary>
+
+### 测试参数
+- 初始金额：10 USDT
+- 目标杠杆：1.6x
+- 最小健康因子：1.3
+
+### 交易记录
+
+1. **存入抵押品**
+   [`0x21f5fcf5e97e86e5f36e6bc24966e19171a649c05a3c2ac792128a59b3085786`](https://etherscan.io/tx/0x21f5fcf5e97e86e5f36e6bc24966e19171a649c05a3c2ac792128a59b3085786)
+
+2. **借出 USDC**
+   [`0x6c10fc8ed810907e1121908faa8d404c5e00be83e0e63a41b1dd67146eea2839`](https://etherscan.io/tx/0x6c10fc8ed810907e1121908faa8d404c5e00be83e0e63a41b1dd67146eea2839)
+
+3. **再次存入**
+   [`0xce4d9999e71ea26a5ae6605b068230c17486f6d2ab35461ac2aea96a0f8ff142`](https://etherscan.io/tx/0xce4d9999e71ea26a5ae6605b068230c17486f6d2ab35461ac2aea96a0f8ff142)
+
+### 最终结果
+- 总抵押品：$18.71
+- 总债务：$5.68
+- 实际杠杆：1.57x
+- 健康因子：2.57
+
+</details>
+
+**📌 此代码仅用作 OKX OnchainOS 黑客松比赛备份，不保证后续维护和更新。**
+
+---
+
 ## 许可证
 
 Apache-2.0
