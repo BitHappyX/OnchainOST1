@@ -84,14 +84,22 @@ await token.approve(spender, ethers.MaxUint256);
 **问题**：Aave V3 不允许借出与抵押品相同的代币。
 **解决方案**：存入 USDT 时借出 USDC，然后通过 OKX DEX 交换回 USDT。
 
-### 4. OKX DEX 路由地址不匹配
-**问题**：OKX `/approve` API 返回的 `dexContractAddress` 与 `/swap` API 返回的 `tx.to` 地址不同，授权错误地址导致 "SafeERC20: low-level call failed" 错误。
-**解决方案**：先获取 swap 数据，然后授权 `swapData.data[0].tx.to` 地址（实际路由地址）。
+### 4. OKX DEX 授权地址问题
+**问题**：OKX DEX 使用双合约架构：Swap Router (tx.to) 接收交易，但 Approval Contract 执行实际的代币转账。直接授权给 Router 会导致 swap 失败。
+**解决方案**：使用 OKX `/approve` API 获取 `dexContractAddress`，授权该地址而非 Router。
 
 ```javascript
+// 先调用 approve API 获取正确的授权地址
+const approveCmd = `onchainos swap approve --chain ethereum --token ${fromAddr} --amount ${amount}`;
+const approveData = JSON.parse(execSync(approveCmd));
+const approvalAddress = approveData.data[0].dexContractAddress; // 0x40aA958dd87FC8305b97f2BA922CDdCa374bcD7f
+
+// 授权给 Approval Contract
+await token.approve(approvalAddress, ethers.MaxUint256);
+
+// 然后执行 swap
 const swapData = await fetch(swapUrl).then(r => r.json());
-const routerAddress = swapData.data[0].tx.to;
-await token.approve(routerAddress, amount);
+await wallet.sendTransaction(swapData.data[0].tx);
 ```
 
 ### 5. RPC 超时与不稳定问题 ⚠️
